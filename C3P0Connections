@@ -1,0 +1,71 @@
+使用c3p0连接池整合mysql以及spring，过程中出现的问题调试方法：
+一般来讲，大家spring和mysql的整合，都会通过用c3p0.ComboPooledDataSource来配置数据库的各种连接串jdbcUrl，驱动类driverClass，用户名user，密码password，初始连接池initialPoolSize等信息，
+然后再对dataSource注入到dataSourceTransactionManager等对象，例如：
+<context:property-placeholder location="classpath:dbconfig.properties"></context:property-placeholder>
+    <bean id="dataSource" class="com.mchange.v2.c3p0.ComboPooledDataSource">
+        <property name="jdbcUrl" value="${jdbc.Url}"></property>
+        <property name="driverClass" value="${jdbc.Driver}"></property>
+        <property name="user" value="${jdbc.Username}"></property>
+        <property name="password" value="${jdbc.Password}"></property>
+        <property name="initialPoolSize" value="${jdbc.initialPoolSize}"></property>
+        <property name="minPoolSize" value="${jdbc.minPoolSize}"></property>
+        <property name="maxPoolSize" value="${jdbc.maxPoolSize}"></property>
+        <property name="maxIdleTime" value="${jdbc.maxIdleTime}"></property>
+    </bean>
+    <!--整合mybatis，用spring来管理所有组件，包括mapper，并且来管理事务，spring事务管理器-->
+    <bean id="dataSourceTransactionManager" class="org.springframework.jdbc.datasource.DataSourceTransactionManager">
+        <property name="dataSource" ref="dataSource"></property>
+    </bean>
+    <!-- 开启基于注解的事务 -->
+    <tx:annotation-driven transaction-manager="dataSourceTransactionManager"/>
+
+<!--    创建出sqlSessionFactory对象，并给dataSource赋值-->
+    <bean id="sqlSessionFactoryBean" class="org.mybatis.spring.SqlSessionFactoryBean">
+        <property name="dataSource" ref="dataSource"></property>
+        <property name="configLocation" value="classpath:mybatis-config.xml"></property>
+        <property name="mapperLocations" value="classpath:/mapper/*.xml"></property>
+    </bean>
+
+    <!--配置一个可以进行批量执行的sqlSession  -->
+    <bean id="sqlSession" class="org.mybatis.spring.SqlSessionTemplate">
+        <constructor-arg name="sqlSessionFactory" ref="sqlSessionFactoryBean"></constructor-arg>
+        <constructor-arg name="executorType" value="BATCH"></constructor-arg>
+    </bean>
+    但是如果连接出现问题，我们可以在测试类中进行对单个的bean逐个装配测试排查问题，比如，先测sqlSessionTemplate不行，然后再往回找SqlSessionFactoryBean发现还是不行，然后继续往前找Datasource，
+    然后发现datasource通过配置方式还是不行，干脆不用配置方式了，用最原始的set方式。如果连最原始的ComboPooledDataSource dataSource = new ComboPooledDataSource();dataSource.setxxxx方法都不行
+    那就要看看是不是数据库启动或者访问权限开启了。
+    测试方法如下：
+    @Autowired
+    EmployeeMapper employeeMapper;
+    @Qualifier(value = "sqlSession")
+//     @Autowired
+//    SqlSessionTemplate template;
+//    @Qualifier(value = "sqlSessionFactoryBean")
+//    @Autowired
+//    SqlSessionFactoryBean sqlSessionFactoryBean;
+//    @Qualifier(value = "dataSource")
+//    @Autowired
+//    ComboPooledDataSource dataSource;
+    @Test
+    public void test_springWithMybatis() throws Exception {
+        Employee e = employeeMapper.getEmpById(1);
+//        SqlSessionFactory factory = sqlSessionFactoryBean.getObject();
+//        SqlSession opensession = factory.openSession();
+//        EmployeeMapper mapper = opensession.getMapper(EmployeeMapper.class);
+//        System.out.println(mapper.getEmpById(1));
+        //        template.getConnection();
+//        dataSource.setDriverClass("com.mysql.cj.jdbc.Driver");
+//        dataSource.setJdbcUrl("jdbc:mysql://58.87.80.26:3306/d1_employee");
+//        dataSource.setUser("saske_user1");//saske_user1
+//        dataSource.setPassword("Sb12345678!");//Sb12345678!
+//        dataSource.setInitialPoolSize(5);
+//        dataSource.setMinPoolSize(2);
+//        dataSource.setMaxPoolSize(10);
+//        dataSource.setMaxIdleTime(60);
+//        dataSource.getConnection();
+//        JdbcTemplate jdbcTemplate = new JdbcTemplate(dataSource);
+//        String sql = "select id as id,last_name as lastName,email as email,gender as gender from tbl_employee";
+//        List l = jdbcTemplate.queryForList(sql);
+//        System.out.println("查询结果：" + l);
+        System.out.println(e);
+    }
